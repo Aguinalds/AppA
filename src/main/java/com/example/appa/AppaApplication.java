@@ -14,8 +14,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.io.*;
 
@@ -31,7 +30,7 @@ public class AppaApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(AppaApplication.class, args);
 	}
-	private BlockingQueue<String> mensagemQueue = new LinkedBlockingQueue<>();
+    private CompletableFuture<String> mensagemFuture = new CompletableFuture<>();
 	@PostMapping(value = "/GerarRemessas")
 	public String postGerarRemessas(){
 		String caminhoPlanilha = "C:/Users/Pichau/Desktop/BoletosNaoPagos/Clientes.xlsm";
@@ -168,7 +167,7 @@ public class AppaApplication {
 		}
 	}
 	@PostMapping(value = "/ReceberMensagens")
-	public String postReceberMensagens() throws IOException, TimeoutException, InterruptedException {
+	public CompletableFuture<String> postReceberMensagens() throws IOException, TimeoutException, InterruptedException {
 		// Configuração da conexão com o servidor RabbitMQ
 		ConnectionFactory factory = new ConnectionFactory();
 		factory.setHost("localhost"); // Altere para o IP do seu servidor RabbitMQ
@@ -189,8 +188,8 @@ public class AppaApplication {
 					String mensagem = new String(body, "UTF-8");
 					System.out.println("Mensagem de confirmação recebida: " + mensagem);
 
-					// Armazena a mensagem na fila
-					mensagemQueue.offer(mensagem);
+                    // Completa o CompletableFuture com a mensagem recebida
+                    mensagemFuture.complete(mensagem);
 					ExcluirRemessasJaEnviadas();
 				}
 
@@ -199,7 +198,7 @@ public class AppaApplication {
 
 			channel.basicConsume(EXCHANGE_NAME, true, consumer);
 
-
+            return mensagemFuture;
 
 		} catch (UnsupportedEncodingException e) {
 			throw new RuntimeException(e);
@@ -217,9 +216,6 @@ public class AppaApplication {
 			}
 		}
 
-		// Bloqueia e espera até que uma mensagem seja recebida
-		String mensagemRecebida = mensagemQueue.take();
-		return mensagemRecebida;
 	}
 
 	public static void ExcluirRemessasJaEnviadas(){
