@@ -14,6 +14,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeoutException;
 import java.io.*;
 
@@ -22,13 +24,14 @@ import java.io.*;
 @RestController
 public class AppaApplication {
 
+
 	private final static String QUEUE_NAME = "EnviarRemessa";
 	private final static String EXCHANGE_NAME = "ConfirmacaoRecebimento";
 
 	public static void main(String[] args) {
 		SpringApplication.run(AppaApplication.class, args);
 	}
-
+	private BlockingQueue<String> mensagemQueue = new LinkedBlockingQueue<>();
 	@PostMapping(value = "/GerarRemessas")
 	public String postGerarRemessas(){
 		String caminhoPlanilha = "C:/Users/Pichau/Desktop/BoletosNaoPagos/Clientes.xlsm";
@@ -122,7 +125,7 @@ public class AppaApplication {
 		} catch (TimeoutException e) {
 			throw new RuntimeException(e);
 		}
-		return null;
+		return "Remessas Geradas";
 	}
 
 	public static void EnviarMensagemDaRemessa(String nRemessa) throws IOException, TimeoutException {
@@ -165,7 +168,7 @@ public class AppaApplication {
 		}
 	}
 	@PostMapping(value = "/ReceberMensagens")
-	public String postReceberMensagens() throws IOException, TimeoutException {
+	public String postReceberMensagens() throws IOException, TimeoutException, InterruptedException {
 		// Configuração da conexão com o servidor RabbitMQ
 		ConnectionFactory factory = new ConnectionFactory();
 		factory.setHost("localhost"); // Altere para o IP do seu servidor RabbitMQ
@@ -185,10 +188,14 @@ public class AppaApplication {
 				public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
 					String mensagem = new String(body, "UTF-8");
 					System.out.println("Mensagem de confirmação recebida: " + mensagem);
-					// Realize qualquer ação necessária com a mensagem de confirmação
+
+					// Armazena a mensagem na fila
+					mensagemQueue.offer(mensagem);
 					ExcluirRemessasJaEnviadas();
 				}
+
 			};
+
 
 			channel.basicConsume(EXCHANGE_NAME, true, consumer);
 
@@ -209,7 +216,10 @@ public class AppaApplication {
 				connection.close();
 			}
 		}
-		return null;
+
+		// Bloqueia e espera até que uma mensagem seja recebida
+		String mensagemRecebida = mensagemQueue.take();
+		return mensagemRecebida;
 	}
 
 	public static void ExcluirRemessasJaEnviadas(){
