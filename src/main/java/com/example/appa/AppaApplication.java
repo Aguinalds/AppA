@@ -25,14 +25,13 @@ public class AppaApplication {
 
 
 	private final static String QUEUE_NAME = "EnviarRemessa";
-	private final static String EXCHANGE_NAME = "ConfirmacaoRecebimento";
 
 	public static void main(String[] args) {
 		SpringApplication.run(AppaApplication.class, args);
 	}
     private CompletableFuture<String> mensagemFuture = new CompletableFuture<>();
 	@PostMapping(value = "/GerarRemessas")
-	public String postGerarRemessas(){
+	public String postGerarRemessas(int QtdRemessas){
 		String caminhoPlanilha = "C:/Users/Pichau/Desktop/BoletosNaoPagos/Clientes.xlsm";
 
 		try (FileInputStream fis = new FileInputStream(caminhoPlanilha)) {
@@ -110,7 +109,7 @@ public class AppaApplication {
 				}
 
 				// Verifica se o contador atingiu mil e interrompe o loop
-				if (rowIndex == 1000) {
+				if (rowIndex == QtdRemessas) {
 					break;
 				}
 			}
@@ -164,85 +163,6 @@ public class AppaApplication {
 			if (connection != null) {
 				connection.close();
 			}
-		}
-	}
-	@PostMapping(value = "/ReceberMensagens")
-	public CompletableFuture<String> postReceberMensagens() throws IOException, TimeoutException, InterruptedException {
-		// Configuração da conexão com o servidor RabbitMQ
-		ConnectionFactory factory = new ConnectionFactory();
-		factory.setHost("localhost"); // Altere para o IP do seu servidor RabbitMQ
-		factory.setPort(32790); // Porta padrão do RabbitMQ
-
-		Connection connection = null;
-		Channel channel = null;
-		try {
-			// Cria uma conexão e um canal
-			connection = factory.newConnection();
-			channel = connection.createChannel();
-
-			channel.queueDeclare(EXCHANGE_NAME, false, false, false, null);
-
-			Consumer consumer = new DefaultConsumer(channel) {
-				@Override
-				public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
-					String mensagem = new String(body, "UTF-8");
-					System.out.println("Mensagem de confirmação recebida: " + mensagem);
-
-                    // Completa o CompletableFuture com a mensagem recebida
-                    mensagemFuture.complete(mensagem);
-					ExcluirRemessasJaEnviadas();
-				}
-
-			};
-
-
-			channel.basicConsume(EXCHANGE_NAME, true, consumer);
-
-            return mensagemFuture;
-
-		} catch (UnsupportedEncodingException e) {
-			throw new RuntimeException(e);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		} catch (TimeoutException e) {
-			throw new RuntimeException(e);
-		} finally {
-			// Fecha o canal e a conexão
-			if (channel != null) {
-				channel.close();
-			}
-			if (connection != null) {
-				connection.close();
-			}
-		}
-
-	}
-
-	public static void ExcluirRemessasJaEnviadas(){
-		String pasta = "C:/Users/Pichau/source/repos/Pagamentos/Pagamentos/BoletoBancario";
-
-		// Cria um objeto File para representar a pasta
-		File pastaObj = new File(pasta);
-
-		// Verifica se a pasta existe
-		if (pastaObj.exists() && pastaObj.isDirectory()) {
-			// Obtém a lista de arquivos na pasta
-			File[] arquivos = pastaObj.listFiles();
-
-			// Itera sobre os arquivos e exclui os arquivos .txt
-			if (arquivos != null) {
-				for (File arquivo : arquivos) {
-					if (arquivo.isFile() && arquivo.getName().endsWith(".txt")) {
-						if (arquivo.delete()) {
-							System.out.println("Arquivo excluído: " + arquivo.getName());
-						} else {
-							System.out.println("Falha ao excluir o arquivo: " + arquivo.getName());
-						}
-					}
-				}
-			}
-		} else {
-			System.out.println("A pasta especificada não existe.");
 		}
 	}
 
