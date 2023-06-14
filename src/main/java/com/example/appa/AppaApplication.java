@@ -32,7 +32,7 @@ public class AppaApplication {
     private CompletableFuture<String> mensagemFuture = new CompletableFuture<>();
 	@PostMapping(value = "/GerarRemessas")
 	public String postGerarRemessas(int QtdRemessas){
-		String caminhoPlanilha = "C:/Users/Pichau/Desktop/BoletosNaoPagos/Clientes.xlsm";
+		String caminhoPlanilha = "C:/Users/Pichau/IdeaProjects/appa/Clientes/Clientes.xlsm/"; //COLOQUE AQUI O CAMINHO QUE ESTÁ NO SEU COMPUTADOR
 
 		try (FileInputStream fis = new FileInputStream(caminhoPlanilha)) {
 			Workbook workbook = new XSSFWorkbook(fis);
@@ -103,8 +103,10 @@ public class AppaApplication {
 				String remessaStr = remessa.render();
 				String nRemessa = "remessa" + rowIndex +".txt";
 
+				//AQUI ENVIA A MENSAGEM PARA O CONSUMER
 				EnviarMensagemDaRemessa(nRemessa);
-				try (FileWriter writer = new FileWriter("C:/Users/Pichau/source/repos/Pagamentos/Pagamentos/BoletoBancario/" + nRemessa)) {
+				//AQUI É A PASTA QUE SERÃO ARMAZENADAS AS REMESSAS
+				try (FileWriter writer = new FileWriter("C:/Users/Pichau/IdeaProjects/appa/Remessas/" + nRemessa)) {
 					writer.write(remessaStr);
 				}
 
